@@ -660,18 +660,3 @@ class AFENet_L(nn.Module):
 
 
 
-
-if __name__ == '__main__':
-
-    state_dict = torch.load('/home/yan/Documents/CD_Code/Work1/best_G_HTCD_MDD_0.95.pth')
-    # 打印 state_dict 的键值
-    for key in state_dict.keys():
-        print(key)
-
-    # x1 = torch.randn(4, 3, 256, 256).cuda()
-    # x2 = torch.randn(4, 3, 256, 256).cuda()
-    # model = AFENet(3,2).cuda()
-    # out = model(x1, x2)
-
-
-
