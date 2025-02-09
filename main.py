@@ -16,7 +16,7 @@ from afenet import *
 parser = argparse.ArgumentParser(description='AFENet', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--net', type=str, default='AFENet',
                     help='Named a new network')
-parser.add_argument('--dataset', type=str, default='MT-HTCD',
+parser.add_argument('--dataset', type=str, default='MT-Wuhan',
                     help='Options: [GZ OSCD CDD LEVIR WHU MT-HTCD MT-Wuhan]')
 parser.add_argument('--optimizer', type=str, default='MultiStepLR',
                     help='Options: [LambdaLR MultiStepLR SGD]')
@@ -63,19 +63,8 @@ elif Dataset == 'WHU':
     train_data = WHU_Dataset(move='train', transform=transforms_set_1)
     test_data = WHU_Dataset(move='test', transform=transforms_set_1)
 elif Dataset == 'MT-HTCD':
-    # data = MT_HTCDDataset_1(transform=transforms_set_1)
-    # torch.manual_seed(0)
-    # train_size = int(0.8 * len(data))
-    # test_size = len(data) - train_size
-    # train_data, test_data = torch.utils.data.random_split(data,[train_size,test_size])
-    # train_data = HTCD_CSV(move='train', transform=transforms_set_1)
-    # test_data = HTCD_CSV(move='test', transform=transforms_set_1)
-    with open('/home/yan/Documents/CD_Code/Work1/HTCD_train_256.pickle','rb') as file:
-        train_data = pickle.load(file)
-    file.close()
-    with open('/home/yan/Documents/CD_Code/Work1/HTCD_test_256.pickle', 'rb') as file:
-        test_data = pickle.load(file)
-    file.close()
+    train_data = HTCD_CSV(move='train', transform=transforms_set_1)
+    test_data = HTCD_CSV(move='test', transform=transforms_set_1)
 elif Dataset == 'MT-Wuhan':
     train_data = MT_WuHanDataset(move='train', transform=transforms_set_1)
     test_data = MT_WuHanDataset(move='test', transform=transforms_set_1)
@@ -83,8 +72,8 @@ elif Dataset == 'MT-Wuhan':
 
 
 # -------------------------------Model------------------------------------ #
-G_model = AFENet_L(3,2)
-D_model = AdversarialNetwork_L()
+G_model = AFENet(3,2)
+D_model = AdversarialNetwork()
 if args.resume is True:
     checkpoint_G = torch.load('xxx.pth')
     checkpoint_D = torch.load('xxx.pth')
@@ -118,14 +107,11 @@ elif Optimizer == 'MultiStepLR':
     parameter_list = G_model.get_parameters() + D_model.get_parameters()
     milestone = range(1100,1200,10)
     optimizer = torch.optim.Adam(parameter_list, lr=(1e-3), weight_decay=(1e-4))
-    # optimizer.add_param_group({'params': D_model.parameters()})
-    # optimizer.add_param_group({'params': loss_weights})
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestone, gamma=0.8)
 elif Optimizer == 'SGD':
-    # parameter_list = G_model.get_parameters() + D_model.get_parameters()
-    optimizer = torch.optim.Adam(G_model.parameters(), lr=(1e-3), weight_decay=1e-4)
+    parameter_list = G_model.get_parameters() + D_model.get_parameters()
+    optimizer = torch.optim.Adam(parameter_list, lr=(1e-3), weight_decay=1e-4)
     optimizer.add_param_group({'params': D_model.parameters()})
-    # optimizer.add_param_group({'params': loss_weights})
 # ------------------------------------------------------------------------ #
 
 
@@ -211,21 +197,19 @@ def train(train_loader_arg, model_G, model_D, the_epoch):
             label = label.squeeze(1).to(torch.long)
             entropy = Entropy(outputs)
             # MADA
-            # afe_loss = 0
-            # normalized_weights = torch.softmax(loss_weights, dim=0)
-            # normalized_weights = [0.1,0.4,0.4]
-            # for i in range(1,4):
-            #     features = torch.cat((feats[0][i], feats[1][i]), dim=0)
-            #     loss_ada = CADA([features, outputs], model_D, entropy=entropy, coeff=calc_coeff(batch_idx), random_layer=None)
-            #     loss_dcm = MDD_loss(torch.cat((feats[0][i], feats[1][i]), dim=0), labels)
-            #     loss_afe = loss_ada + 0.5*loss_dcm
-            #     afe_loss += normalized_weights[i-1] * loss_afe
-            features = torch.cat((feats[0][3], feats[1][3]), dim=0)
-            loss_ada = CADA([features, outputs], model_D, entropy=entropy, coeff=calc_coeff(batch_idx), random_layer=None)
-            # loss_dcm = MDD_loss(features, labels)
-            # afe_loss = loss_ada + 0.5* loss_dcm
+            afe_loss = 0
+            normalized_weights = torch.softmax(loss_weights, dim=0)
+            normalized_weights = [0.1,0.4,0.4]
+            for i in range(1,4):
+                features = torch.cat((feats[0][i], feats[1][i]), dim=0)
+                loss_ada = CADA([features, outputs], model_D, entropy=entropy, coeff=calc_coeff(batch_idx), random_layer=None)
+                loss_dcm = MDD_loss(torch.cat((feats[0][i], feats[1][i]), dim=0), labels)
+                loss_afe = loss_ada + 0.5*loss_dcm
+                afe_loss += normalized_weights[i-1] * loss_afe
+            loss_dcm = MDD_loss(features, labels)
+            afe_loss = loss_ada + 0.5* loss_dcm
             cd_loss = criterion_CE(out_cd,label)
-            total_loss = cd_loss + loss_ada
+            total_loss = cd_loss + afe_loss
             optimizer.zero_grad()
             total_loss.backward()
             optimizer.step()
@@ -233,7 +217,6 @@ def train(train_loader_arg, model_G, model_D, the_epoch):
                            'loss': '%.4f' % total_loss.detach().cpu().data
                            })
             t.update(1)
-    # scheduler_arg.step()
 
 
 # -----------------------------test--------------------------------------- #
@@ -251,8 +234,8 @@ def test(test_loader_arg, model_arg, the_epoch):
             out_cd,_ = model_arg(img_1, img_2)
             label = label.squeeze(1).to(torch.long)
             tp_tmp, tn_tmp, fp_tmp, fn_tmp = confusion_matrix(label, out_cd)
-            # images_label = save_visual_result(label.to(torch.float32), images_label, is_label=True)
-            # images = save_visual_result(out_cd, images, is_label=False)
+            images_label = save_visual_result(label.to(torch.float32), images_label, is_label=True)
+            images = save_visual_result(out_cd, images, is_label=False)
             tp += tp_tmp
             tn += tn_tmp
             fp += fp_tmp
@@ -290,20 +273,20 @@ def test(test_loader_arg, model_arg, the_epoch):
         f.write("---------------------------------------------------\n")
         f.close()
         print('max_f1:' + str(max(f1_sequence)) + ' epoch:' + str(f1_sequence.index(max(f1_sequence)) + 1) + '\n')
-        if f1 == max(f1_sequence) and f1>0.5:
+        if f1 == max(f1_sequence):
             torch.save(G_model.state_dict(), './save/best_G_{}_{}_{}.pth'.format(Dataset, Net, f1))
             torch.save(D_model.state_dict(), './save/best_D_{}_{}_{}.pth'.format(Dataset, Net, f1))
-            # for i in range(len(images)):
-            #     result_label = images_label[i]
-            #     result_image = images[i]
-            #     #result
-            #     if not os.path.isdir('vision/' + Net + '/result/' + Dataset):
-            #         os.makedirs('vision/' + Net + '/result/' + Dataset)
-            #     Image.Image.save(result_image, 'vision/' + Net + '/result/' + Dataset + '/{}.png'.format(i))
-            #     #label
-            #     if not os.path.isdir('vision/' + Net + '/label/' + Dataset):
-            #         os.makedirs('vision/' + Net + '/label/' + Dataset)
-            #     Image.Image.save(result_label, 'vision/' + Net + '/label/' + Dataset + '/{}.png'.format(i))
+            for i in range(len(images)):
+                result_label = images_label[i]
+                result_image = images[i]
+                #result
+                if not os.path.isdir('vision/' + Net + '/result/' + Dataset):
+                    os.makedirs('vision/' + Net + '/result/' + Dataset)
+                Image.Image.save(result_image, 'vision/' + Net + '/result/' + Dataset + '/{}.png'.format(i))
+                #label
+                if not os.path.isdir('vision/' + Net + '/label/' + Dataset):
+                    os.makedirs('vision/' + Net + '/label/' + Dataset)
+                Image.Image.save(result_label, 'vision/' + Net + '/label/' + Dataset + '/{}.png'.format(i))
 
 
 # -----------------------------main--------------------------------------- #
@@ -312,7 +295,6 @@ for epoch in range(args.epoch_num):
     train(train_loader_arg=train_loader,
           model_G = G_model,
           model_D = D_model,
-          # scheduler_arg=scheduler,
           the_epoch=epoch)
     if epoch >= 0:
         test(test_loader_arg=test_loader,
