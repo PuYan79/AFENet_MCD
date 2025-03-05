@@ -23,16 +23,13 @@ This is a PyTorch/GPU implementation of the paper [Adversarial Feature Equilibri
 
 ### Installation
 
-For convenience, our pre-trained models can be downloaded directly here as well:
+For convenience, our pre-trained models can be downloaded directly here:
 
 | Model                                                                                                    | Dataset      | F1-Score    | Params      | 
 |----------------------------------------------------------------------------------------------------------|--------------|-------------|-------------|
 | [G_model](https://drive.google.com/file/d/1Q4-YJUEQAMgqy3FfQak-3VPsHSe5N1_f/view?usp=drive_link)         | MT-Wuhan     | 60.03       | 297.8M      |
 | [D_model](https://drive.google.com/file/d/1eMEVYUmj_0mQdr07SBqrPzBXC-vdEjd5/view?usp=drive_link)         | MT-Wuhan     | 60.03       | 11.7M       |
 
-
-
-## Preparation
 
 
 ## Usage
