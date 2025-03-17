@@ -29,7 +29,8 @@ For convenience, our pre-trained models can be downloaded directly here:
 |----------------------------------------------------------------------------------------------------------|--------------|-------------|-------------|
 | [G_model](https://drive.google.com/file/d/1Q4-YJUEQAMgqy3FfQak-3VPsHSe5N1_f/view?usp=drive_link)         | MT-Wuhan     | 60.03       | 297.8M      |
 | [D_model](https://drive.google.com/file/d/1eMEVYUmj_0mQdr07SBqrPzBXC-vdEjd5/view?usp=drive_link)         | MT-Wuhan     | 60.03       | 11.7M       |
-
+| [G_model](https://drive.google.com/file/d/1QSOa3XDnzjru9tCgBdSzDTRe7nuh6dWm/view?usp=drive_link)         | MT-HTCD      | 97.15       | 297.8M      |
+| [D_model](https://drive.google.com/file/d/1SixiniihgLnk6G0Bv3ywtLO5h0amAgBu/view?usp=drive_link)         | MT-HTCD      | 97.15       | 11.7M       |
 
 
 ## Usage
